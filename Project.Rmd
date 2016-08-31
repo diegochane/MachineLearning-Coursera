@@ -1,0 +1,118 @@
+---
+title: "Machine Learning Project"
+author: "Diego Chavez"
+date: "August 30, 2016"
+output: html_document
+---
+## Executive summary
+The purpose of this project is to predict how well certain users perform a particular activity using accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The measure of activity quality is measured in the 'classe' variable, which has 5 levels going from A (best quality) to E (worst quality).
+
+## Download & read data
+The first step is to gather the training data and the test data from the provided links. It is important to define the strings that should be comverted to NA values such as the "#DIV/0!" string that excel sometimes show.
+```{r, cache=T}
+url.training="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+url.test="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(url.training,destfile="training.csv", method = "curl")
+download.file(url.test, destfile = "test.csv", method="curl")
+training=read.csv("training.csv", na.strings = c("#DIV/0!", "", "NA"))
+dim(training)
+test=read.csv("test.csv", na.strings = c("#DIV/0!", "", "NA"))
+dim(test)
+```
+
+Once that the data has been imported into R, the first column is removed from both datasets since it's only the row number.
+
+```{r}
+training[,1]=NULL
+test[,1]=NULL
+```
+
+### Divide training & validation sets
+In order to prevent overfitting when training our models, the training dataset will be divided into two different parts. The first part (~70%) will be used to train the model, and the second part (~30%) will be used to evaluate the performance of the models. This second dataset is defined as 'validation'.
+
+```{r}
+library (caret)
+sample=createDataPartition(y=training$classe, p=0.6, list=F)
+validation=training[-sample,]
+training=training[sample,]
+```
+
+## Cleaning Data
+The first step into predicting the quality of the movement is to identify all the variables that will not be relevant to the model. 
+
+### Cleanup zero variance variables
+The first cleanup approach is to identify the variables that have a variance close to zero, using the following code. Once that these variables have been identified they are removed from all the datasets.
+
+```{r}
+nearzero=nearZeroVar(training, saveMetrics =F)
+training=training[,-nearzero]
+validation=validation[,-nearzero]
+test=test[,-nearzero]
+```
+
+### Cleanup variables with too many NA's
+The second approach is to remove all those variables that have a great number of NA values. All the variables that have more than 30% of NA values are classified as irrelevant to the model, and hence removed from the datasets.
+
+```{r}
+na.var=sapply(training, function(y) sum(length(which(is.na(y)))))
+na.var=data.frame(na.var)
+na.var$total=sapply(training,function (y) length(y))
+na.var$perc=na.var$na.var/na.var$total
+na.var.col=which(na.var$perc>0.3)
+training=training[,-na.var.col]
+validation=validation[,-na.var.col]
+test=test[,-na.var.col]
+test[,58]=NULL
+```
+
+## Machine Learining Models
+Once that all the relevant variables have been filtered, different machine learining algorithms such as decision trees, random forests, and boosting are used with the training dataset.
+
+### Decision Trees
+The first and most simple approach is the decision tree algorithm. 
+
+```{r, cache=TRUE}
+library(rpart)
+tree.model=rpart(classe ~ ., data=training, method="class")
+tree.pred=predict(tree.model,newdata = validation, type="class")
+tree.matrix=confusionMatrix(tree.pred,validation$classe)
+tree.matrix
+plot(tree.matrix$table, main="Decision Tree Confusion Matrix")
+```
+
+As we can see the accuracy of this model is good, but it has room to improve. Because of this result much more complex models will be run.
+
+### Random Forests
+The second model is a random forest using the 57 predictors.
+
+```{r, cache=TRUE}
+random.model=train(classe~., data=training, method="rf", prox=T)
+random.pred=predict(random.model, newdata=validation)
+random.matrix=confusionMatrix(random.pred,validation$classe)
+random.matrix
+plot(random.matrix$table, main="Random Forest Confusion Matrix")
+```
+
+As we can see from the confusion matrix, the accuracy of this model is quite optimal.
+
+### Boosting
+Finally a third model is built using GBM boosting.
+
+```{r, cache=TRUE}
+boosting.model=train(classe~., data=training, method="gbm", verbose=F)
+boosting.pred=predict(boosting.model, newdata=validation)
+boosting.matrix=confusionMatrix(boosting.pred,validation$classe)
+boosting.matrix
+plot(boosting.matrix$table, main="Boosting Confusion Matrix")
+```
+
+The performance of this model is quite close to the optimal point.
+
+## Create Predictions
+Since the random forest model was the one that had the lowest validation error, it is the one that will be used to predict the classe in the test dataset. Finally, the predicted results will be saved in a .csv file 
+
+```{r}
+final.pred=predict(random.model,newdata=test)
+data.frame(final.pred)
+write.csv(final.pred, file="predictions.csv", row.names=F)
+```
