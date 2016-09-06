@@ -28,7 +28,7 @@ test[,1]=NULL
 ```
 
 ### Divide training & validation sets
-In order to prevent overfitting when training our models, the training dataset will be divided into two different parts. The first part (~70%) will be used to train the model, and the second part (~30%) will be used to evaluate the performance of the models. This second dataset is defined as 'validation'.
+In order to prevent overfitting when training our models a cross validation approach will be used. The training dataset will be divided into two different parts. The first part (~70%) will be used to train the model, and the second part (~30%) will be used to evaluate the performance of the models. This second dataset is defined as 'validation'.
 
 ```{r}
 library (caret)
@@ -80,7 +80,7 @@ tree.matrix
 plot(tree.matrix$table, main="Decision Tree Confusion Matrix")
 ```
 
-As we can see the accuracy of this model is good, but it has room to improve. Because of this result much more complex models will be run.
+As we can see the accuracy of this model is good (88.53%), but it has room to improve. The expected Out of Sample error is 11.47%. Because of this result much more complex models will be run.
 
 ### Random Forests
 The second model is a random forest using the 57 predictors.
@@ -93,7 +93,7 @@ random.matrix
 plot(random.matrix$table, main="Random Forest Confusion Matrix")
 ```
 
-As we can see from the confusion matrix, the accuracy of this model is quite optimal.
+As we can see from the confusion matrix, the accuracy of this model is quite optimal (99.87%). The expected Out of Sample Error is 0.13%.
 
 ### Boosting
 Finally a third model is built using GBM boosting.
@@ -106,7 +106,7 @@ boosting.matrix
 plot(boosting.matrix$table, main="Boosting Confusion Matrix")
 ```
 
-The performance of this model is quite close to the optimal point.
+The accuracy of this model is quite close to the optimal point (99.63%), but not as good as the Random Forests approach. The expected Out of Sample Error is 0.37%.
 
 ## Create Predictions
 Since the random forest model was the one that had the lowest validation error, it is the one that will be used to predict the classe in the test dataset. Finally, the predicted results will be saved in a .csv file 
